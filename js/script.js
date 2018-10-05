@@ -4,6 +4,7 @@ console.log("App is alive");
 
 /** #7 Create global variable */
 var currentChannel;
+var emojis = require('emojis-list')
 
 /** #7 We simply initialize it with the channel selected by default - sevencontinents */
 currentChannel = sevencontinents;
@@ -23,6 +24,7 @@ var currentLocation = {
 function switchChannel(channelObject) {
     //Log the channel switch
     console.log("Tuning in to channel", channelObject);
+
 
     // #7  Write the new channel to the right app bar using object property
     document.getElementById('channel-name').innerHTML = channelObject.name;
@@ -73,6 +75,7 @@ function selectTab(tabId) {
     $('#tab-bar button').removeClass('selected');
     console.log('Changing to tab', tabId);
     $(tabId).addClass('selected');
+    listChannels();
 }
 
 /**
@@ -80,6 +83,11 @@ function selectTab(tabId) {
  */
 function toggleEmojis() {
     $('#emojis').toggle(); // #toggle
+    for (var i=0;i<emojis.length;i++){
+        $('<i>').text(emojis[i]).appendTo('#emojis');
+    }
+    
+
 }
 
 /**
@@ -87,6 +95,7 @@ function toggleEmojis() {
  * @param text `String` a message text
  * @constructor
  */
+
 function Message(text) {
     // copy my location
     this.createdBy = currentLocation.what3words;
@@ -105,19 +114,26 @@ function sendMessage() {
     // #8 Create a new message to send and log it.
     //var message = new Message("Hello chatter");
 
-    // #8 let's now use the real message #input
-    var message = new Message($('#message').val());
-    console.log("New message:", message);
+    var text = $('#message').val();
 
-    // #8 convenient message append with jQuery:
-    $('#messages').append(createMessageElement(message));
+    if (text.length > 0){
 
-    // #8 messages will scroll to a certain point if we apply a certain height, in this case the overall scrollHeight of the messages-div that increases with every message;
-    // it would also scroll to the bottom when using a very high number (e.g. 1000000000);
-    $('#messages').scrollTop($('#messages').prop('scrollHeight'));
+        // #8 let's now use the real message #input
+        var message = new Message(text);
+        console.log("New message:", message);
+        currentChannel.message.push(message);
+        currentChannel.messageCount++;
 
-    // #8 clear the message input
-    $('#message').val('');
+        // #8 convenient message append with jQuery:
+        $('#messages').append(createMessageElement(message));
+        
+        // #8 messages will scroll to a certain point if we apply a certain height, in this case the overall scrollHeight of the messages-div that increases with every message;
+        // it would also scroll to the bottom when using a very high number (e.g. 1000000000);
+        $('#messages').scrollTop($('#messages').prop('scrollHeight'));
+
+        // #8 clear the message input
+        $('#message').val('');
+    }
 }
 
 /**
@@ -140,7 +156,7 @@ function createMessageElement(messageObject) {
         messageObject.createdOn.toLocaleString() +
         '<em>' + expiresIn+ ' min. left</em></h3>' +
         '<p>' + messageObject.text + '</p>' +
-        '<button>+5 min.</button>' +
+        '<button class="accent" >+5 min.</button>' +
         '</div>';
 }
 
@@ -148,13 +164,24 @@ function createMessageElement(messageObject) {
 function listChannels() {
     // #8 channel onload
     //$('#channels ul').append("<li>New Channel</li>")
+    
+    //channel list clear
+    $('#channels ul').empty();
 
-    // #8 five new channels
-    $('#channels ul').append(createChannelElement(yummy));
-    $('#channels ul').append(createChannelElement(sevencontinents));
-    $('#channels ul').append(createChannelElement(killerapp));
-    $('#channels ul').append(createChannelElement(firstpersononmars));
-    $('#channels ul').append(createChannelElement(octoberfest));
+    //check for new, trending and favorite
+    if ($('#tab-trending').hasClass('selected')){
+        channels.sort(compareMessageCount);
+    } else if ($('#tab-favorites').hasClass('selected')){
+        channels.sort(compareStarred);
+    } else {
+        channels.sort(compareDate);
+    } 
+
+    //load channels
+    for (var i = 0; i< channels.length;i++){
+        $('#channels ul').append(createChannelElement(channels[i]));
+    }
+
 }
 
 /**
@@ -175,6 +202,7 @@ function createChannelElement(channelObject) {
 
     // create a channel
     var channel = $('<li>').text(channelObject.name);
+    
 
     // create and append channel meta
     var meta = $('<span>').addClass('channel-meta').appendTo(channel);
@@ -192,4 +220,73 @@ function createChannelElement(channelObject) {
 
     // return the complete channel
     return channel;
+}
+
+function compareDate(channel1, channel2){
+    if (channel1.createdOn < channel2.createdOn){
+        return 1;
+    } else {
+        return -1;
+    }
+}
+
+function compareMessageCount(channel1, channel2){
+    return (channel2.messageCount-channel1.messageCount);
+}
+
+function compareStarred (channel1, channel2){
+    if (channel1.starred){
+        if (channel2.starred == false){
+            return -1;
+        }
+    } else {
+        if (channel2.starred){
+            return 1;
+        }
+    }
+}
+
+function newChannel(){
+    $('#channel-creation-bar').show();
+    $('#messagebutton').hide();
+    $('#createchannelbutton').show();
+
+    //delete messages
+    $('#messages').empty();
+}
+
+function closeChannelCreation(){
+    $('#channel-creation-bar').hide();
+    $('#messagebutton').show();
+    $('#createchannelbutton').hide();
+}
+
+function createChannel(){
+    var newChannelstr = $('#newchannel').val();
+    var messagestr = $('#message').val();
+
+    if (newChannelstr.length > 0 && messagestr.length > 0 && newChannelstr.charAt(0) == '#'){
+        
+        var newChannel = new Channel(newChannelstr);
+        console.log("new Channel:",newChannel);
+        channels.push(newChannel);
+        currentChannel = newChannel;
+
+        sendMessage();
+
+        closeChannelCreation();
+        listChannels();
+        switchChannel(newChannel);
+    }
+}
+
+function Channel(newChannelstr) {
+    // copy my location
+    this.name = newChannelstr;
+    this.createdOn = new Date();
+    this.createdBy= currentLocation.what3words;
+    this.starred= false;
+    this.expiresIn= 15;
+    this.messageCount=0;
+    this.message= [];
 }
